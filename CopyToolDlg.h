@@ -33,7 +33,7 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
-public://手动定义变量
+public://手动定义变量	
 	CStringList m_stringList;
 	int m_rowIndex;	//选中行号
 	int m_rowAuto;	//数据行号
@@ -48,6 +48,7 @@ public://手动定义变量
 	afx_msg BOOL OnToolTipText(UINT, NMHDR* pNMHDR, LRESULT* pResult);  // 工具条提示  
 	//
 	void CheckBoxCheck();
+	CPoint GetShowPosition();
 public:
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	afx_msg void OnBnClickedBtnApply();

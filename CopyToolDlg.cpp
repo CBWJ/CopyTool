@@ -15,6 +15,7 @@
 #define IDH_F3 4002
 //消息
 #define WM_NOTIFYICON WM_USER+1
+#define IDT_TIMER_SHOW 100
 
 //句柄
 static HWND hwndNextViewer;
@@ -53,6 +54,18 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
 END_MESSAGE_MAP()
 
+
+VOID CALLBACK TimerProc(
+	HWND hwnd,        // handle to window for timer messages 
+	UINT message,     // WM_TIMER message 
+	UINT idTimer,     // timer identifier 
+	DWORD dwTime)     // current system time 
+{
+	//MessageBox(hwnd, L"定时时间到", L"提示", MB_OK);
+	//恢复正常显示
+	::SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+	::KillTimer(hwnd, IDT_TIMER_SHOW);
+}
 
 // CCopyToolDlg 对话框
 
@@ -274,26 +287,30 @@ BOOL CCopyToolDlg::PreTranslateMessage(MSG* pMsg)
 				keybd_event(67, 0, KEYEVENTF_KEYUP, 0);
 			}
 			//ShowWindow(SW_SHOW);
-			ShowTop();
 			break;
 		case IDH_F3:
-				pWnd = (CWnd*)GetDlgItem(IDC_STATIC_TIP);
-				pWnd->SetWindowText(time.Format(L"F3 %H:%M:%S"));
-				m_Paste = true;
-				if (m_stringList.GetCount() > 0) {
-					if(m_Lock){
-						s = GetListItemAutoMove();
-						BindList();
-					}
-					else
-					{
-						s = m_stringList.GetHead();
-						POSITION pos = m_stringList.GetHeadPosition();
-						m_stringList.RemoveAt(pos);
-						BindList();
-					}
-					CopyTextToClipboard(AppendCharactor(s));
+			ShowTop();
+			pWnd = (CWnd*)GetDlgItem(IDC_STATIC_TIP);
+			pWnd->SetWindowText(time.Format(L"F3 %H:%M:%S"));
+			m_Paste = true;
+			if (m_stringList.GetCount() > 0) {
+				if(m_Lock){
+					s = GetListItemAutoMove();
+					BindList();
 				}
+				else
+				{
+					s = m_stringList.GetHead();
+					POSITION pos = m_stringList.GetHeadPosition();
+					m_stringList.RemoveAt(pos);
+					BindList();
+				}
+				CopyTextToClipboard(AppendCharactor(s));
+				if(m_list.GetItemCount() > 0)
+					m_list.EnsureVisible(0, true);
+				//设置超时定时器取消置顶显示
+				::SetTimer(this->m_hWnd, IDT_TIMER_SHOW, 50, (TIMERPROC)TimerProc);
+			}
 			//// 模拟按键CTRL+V
 			//keybd_event(17, 0, 0, 0);
 			//keybd_event(86, 0, 0, 0);
@@ -356,7 +373,9 @@ void CCopyToolDlg::OnDrawClipboard()
 		StringListAdd(s);
 		BindList();
 		m_Copy = false;
-		//ShowTop();
+		ShowTop();
+		//设置超时定时器取消置顶显示
+		::SetTimer(this->m_hWnd, IDT_TIMER_SHOW, 50, (TIMERPROC)TimerProc);
 	}
 }
 
@@ -583,7 +602,8 @@ void CCopyToolDlg::OnTrayExit()
 
 void CCopyToolDlg::ShowTop()
 {
-	::SetWindowPos(this->m_hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+	auto pt = GetShowPosition();
+	::SetWindowPos(this->m_hWnd, HWND_TOPMOST, pt.x, pt.y, 0, 0, SWP_NOSIZE);
 }
 
 
@@ -657,6 +677,19 @@ void CCopyToolDlg::CheckBoxCheck()
 	}
 }
 
+CPoint CCopyToolDlg::GetShowPosition()
+{
+	RECT rt, rect;
+	//获得桌面工作区大小，即不包括任务栏的大小，制作窗口全屏时经常用到
+	SystemParametersInfo(SPI_GETWORKAREA, 0, (PVOID)&rt, 0);
+	//窗口大小
+	GetWindowRect(&rect);
+	long x, y;
+	x = rt.right - (rect.right - rect.left);
+	y = rt.bottom - (rect.bottom - rect.top);
+	return CPoint(x, y);
+}
+
 
 CString CCopyToolDlg::AppendCharactor(CString srcString)
 {
@@ -692,6 +725,20 @@ void CCopyToolDlg::OnBnClickedBtnTest()
 	m_comboSpitChar.GetWindowTextW(s);
 	CString sTemp = L"abc\nadaf\n哈哈哈\n";
 	int pos = sTemp.Find(L"\n", 0);;
+	RECT rt, rect;
+	//获得桌面工作区大小，即不包括任务栏的大小，制作窗口全屏时经常用到
+	SystemParametersInfo(SPI_GETWORKAREA, 0, (PVOID)&rt, 0);
+	s.Format(L"width:%d,height:%d", rt.right - rt.left, rt.bottom - rt.top);
+	//窗口大小
+	GetWindowRect(&rect);
+	s.Format(L"width:%d,height:%d", rt.right - rt.left, rt.bottom - rt.top);
+	long x, y;
+	x = rt.right - (rect.right - rect.left);
+	y = rt.bottom - (rect.bottom - rect.top); 
+	auto pt = GetShowPosition();
+	s.Format(L"x:%d,y:%d", pt.x, pt.y);
+	AfxMessageBox(s);
+	return;
 	while (pos >= 0)
 	{
 		s = sTemp.Left(pos);
